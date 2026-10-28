@@ -65,7 +65,6 @@
             70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
             100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
-        /* Custom Scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
@@ -139,6 +138,53 @@
             </a>
         </div>
 
+        <!-- Metric KPI Cards -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="glass-panel rounded-2xl p-4 flex items-center justify-between border-l-4 border-sky-500">
+                <div>
+                    <p class="text-xs text-slate-400">สถานีทั้งหมดในระบบ</p>
+                    <h3 class="text-2xl font-extrabold text-white mt-1" id="kpiTotalStations">64</h3>
+                    <p class="text-[11px] text-slate-400 mt-0.5">ความครอบคลุม 100%</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-tower-cell"></i>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-4 flex items-center justify-between border-l-4 border-emerald-500">
+                <div>
+                    <p class="text-xs text-slate-400">สถานีสมบูรณ์พร้อมใช้</p>
+                    <h3 class="text-2xl font-extrabold text-emerald-400 mt-1" id="kpiOperational">60</h3>
+                    <p class="text-[11px] text-emerald-400/80 mt-0.5" id="kpiOperationalPercent">(93.75%)</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-4 flex items-center justify-between border-l-4 border-red-500">
+                <div>
+                    <p class="text-xs text-slate-400">สถานีที่พบปัญหา</p>
+                    <h3 class="text-2xl font-extrabold text-red-400 mt-1" id="kpiFaulty">4</h3>
+                    <p class="text-[11px] text-red-400/80 mt-0.5" id="kpiFaultyPercent">(6.25%)</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-4 flex items-center justify-between border-l-4 border-amber-500">
+                <div>
+                    <p class="text-xs text-slate-400">รวมเซ็นเซอร์ที่เสีย</p>
+                    <h3 class="text-2xl font-extrabold text-amber-400 mt-1" id="kpiTotalSensorsFailed">7</h3>
+                    <p class="text-[11px] text-slate-400 mt-0.5">รายการเซ็นเซอร์</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-microchip"></i>
+                </div>
+            </div>
+        </section>
+
         <!-- File Upload Section & Filter Bar -->
         <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Upload Box -->
@@ -168,59 +214,61 @@
             </div>
 
             <!-- Operational Health Status & Gauge -->
-        <div class="glass-panel rounded-2xl p-5 lg:col-span-2 flex flex-col justify-between">
-            <div class="flex items-center justify-between mb-4">
-                <div>
-                    <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                        <i class="fa-solid fa-shield-heart text-sky-400"></i> ดัชนีความสมบูรณ์และประสิทธิภาพของระบบ (Overall System Health)
-                    </h2>
-                    <p class="text-xs text-slate-400">สัดส่วนสถานีที่สามารถส่งข้อมูลสภาพอากาศได้ครบถ้วนสมบูรณ์</p>
+            <div class="glass-panel rounded-2xl p-5 lg:col-span-2 flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-shield-heart text-sky-400"></i> ดัชนีความสมบูรณ์และประสิทธิภาพของระบบ (Overall System Health)
+                        </h2>
+                        <p class="text-xs text-slate-400">สัดส่วนสถานีที่สามารถส่งข้อมูลสภาพอากาศได้ครบถ้วนสมบูรณ์</p>
+                    </div>
+                    <span id="healthPercentBadge" class="text-xl font-extrabold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-xl">
+                        93.75%
+                    </span>
                 </div>
-                <span id="healthPercentBadge" class="text-xl font-extrabold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-xl">
-                    93.75%
-                </span>
-            </div>
 
-            <!-- Health Progress Bar -->
-            <div class="space-y-2">
-                <div class="flex justify-between text-xs text-slate-300 font-medium">
-                    <span>ระดับความพร้อมใช้งาน (Operational Readiness)</span>
-                    <span id="operationalRatio">60 / 64 สถานี</span>
+                <!-- Health Progress Bar -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs text-slate-300 font-medium">
+                        <span>ระดับความพร้อมใช้งาน (Operational Readiness)</span>
+                        <span id="operationalRatio">60 / 64 สถานี</span>
+                    </div>
+                    <div class="w-full bg-slate-800 h-4 rounded-full overflow-hidden p-0.5 border border-slate-700 flex">
+                        <div id="healthProgressBar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-700 shadow-md shadow-emerald-500/30" style="width: 93.75%"></div>
+                        <div id="faultyProgressBar" class="bg-gradient-to-r from-red-500 to-rose-600 h-full rounded-full transition-all duration-700 shadow-md shadow-red-500/30" style="width: 6.25%"></div>
+                    </div>
+                    <div class="flex justify-between text-[11px] text-slate-400 pt-1">
+                        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> ปกติสมบูรณ์: <strong class="text-slate-200" id="countNormalText">60 สถานี</strong></span>
+                        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-400"></span> ขัดข้อง/ข้อมูลขาด: <strong class="text-slate-200" id="countFaultyText">4 สถานี</strong></span>
+                    </div>
                 </div>
-                <div class="w-full bg-slate-800 h-4 rounded-full overflow-hidden p-0.5 border border-slate-700 flex">
-                    <div id="healthProgressBar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-700 shadow-md shadow-emerald-500/30" style="width: 93.75%"></div>
-                    <div id="faultyProgressBar" class="bg-gradient-to-r from-red-500 to-rose-600 h-full rounded-full transition-all duration-700 shadow-md shadow-red-500/30" style="width: 6.25%"></div>
-                </div>
-                <div class="flex justify-between text-[11px] text-slate-400 pt-1">
-                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> ปกติสมบูรณ์: <strong class="text-slate-200" id="countNormalText">60 สถานี</strong></span>
-                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-400"></span> ขัดข้อง/ข้อมูลขาด: <strong class="text-slate-200" id="countFaultyText">4 สถานี</strong></span>
-                </div>
-            </div>
 
-            <!-- Quick Sensor Status Indicators -->
-            <div class="grid grid-cols-5 gap-2 mt-4 pt-3 border-t border-slate-800 text-center">
-                <div class="p-2 rounded-xl bg-slate-900/50 border border-slate-800">
-                    <div class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><i class="fa-solid fa-compass text-sky-400"></i> ทิศทางลม (WD)</div>
-                    <div id="sensorWDCount" class="text-sm font-bold text-red-400 mt-0.5">เสีย 1 เครื่อง</div>
-                </div>
-                <div class="p-2 rounded-xl bg-slate-900/50 border border-slate-800">
-                    <div class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><i class="fa-solid fa-wind text-teal-400"></i> ความเร็วลม (WS)</div>
-                    <div id="sensorWSCount" class="text-sm font-bold text-red-400 mt-0.5">เสีย 1 เครื่อง</div>
-                </div>
-                <div class="p-2 rounded-xl bg-slate-900/50 border border-slate-800">
-                    <div class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><i class="fa-solid fa-temperature-three-quarters text-amber-400"></i> อุณหภูมิ (Temp)</div>
-                    <div id="sensorTempCount" class="text-sm font-bold text-red-400 mt-0.5">เสีย 2 เครื่อง</div>
-                </div>
-                <div class="p-2 rounded-xl bg-slate-900/50 border border-slate-800">
-                    <div class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><i class="fa-solid fa-droplet text-blue-400"></i> ความชื้น (Humi)</div>
-                    <div id="sensorHumiCount" class="text-sm font-bold text-red-400 mt-0.5">เสีย 2 เครื่อง</div>
-                </div>
-                <div class="p-2 rounded-xl bg-slate-900/50 border border-slate-800">
-                    <div class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><i class="fa-solid fa-gauge-high text-indigo-400"></i> ความกดอากาศ (Pres)</div>
-                    <div id="sensorPresCount" class="text-sm font-bold text-red-400 mt-0.5">เสีย 1 เครื่อง</div>
+                <!-- Quick Sensor Status Indicators -->
+                <div class="grid grid-cols-5 gap-2 mt-4 pt-3 border-t border-slate-800 text-center">
+                    <div class="p-2 rounded-xl bg-slate-900/50 border border-slate-800">
+                        <div class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><i class="fa-solid fa-compass text-sky-400"></i> ทิศทางลม (WD)</div>
+                        <div id="sensorWDCount" class="text-sm font-bold text-red-400 mt-0.5">เสีย 1 เครื่อง</div>
+                    </div>
+                    <div class="p-2 rounded-xl bg-slate-900/50 border border-slate-800">
+                        <div class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><i class="fa-solid fa-wind text-teal-400"></i> ความเร็วลม (WS)</div>
+                        <div id="sensorWSCount" class="text-sm font-bold text-red-400 mt-0.5">เสีย 1 เครื่อง</div>
+                    </div>
+                    <div class="p-2 rounded-xl bg-slate-900/50 border border-slate-800">
+                        <div class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><i class="fa-solid fa-temperature-three-quarters text-amber-400"></i> อุณหภูมิ (Temp)</div>
+                        <div id="sensorTempCount" class="text-sm font-bold text-red-400 mt-0.5">เสีย 2 เครื่อง</div>
+                    </div>
+                    <div class="p-2 rounded-xl bg-slate-900/50 border border-slate-800">
+                        <div class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><i class="fa-solid fa-droplet text-blue-400"></i> ความชื้น (Humi)</div>
+                        <div id="sensorHumiCount" class="text-sm font-bold text-red-400 mt-0.5">เสีย 2 เครื่อง</div>
+                    </div>
+                    <div class="p-2 rounded-xl bg-slate-900/50 border border-slate-800">
+                        <div class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><i class="fa-solid fa-gauge-high text-indigo-400"></i> ความกดอากาศ (Pres)</div>
+                        <div id="sensorPresCount" class="text-sm font-bold text-red-400 mt-0.5">เสีย 1 เครื่อง</div>
+                    </div>
                 </div>
             </div>
-        </div>
+        </section>
+
         <!-- Infographic Visualization & Charts -->
         <section class="grid grid-cols-1 lg:grid-cols-2 gap-6" id="infographicSection">
             <!-- Chart 1: Sensor Failure Distribution -->
@@ -434,7 +482,7 @@
 
     <!-- JavaScript Application Logic -->
     <script>
-        // Initial Default Data (From User Prompt Request)
+        // Initial Default Data
         const DEFAULT_FAULTY_STATIONS = [
             {
                 id: "29",
@@ -515,7 +563,6 @@
                 html.classList.add('dark');
                 themeIcon.className = 'fa-solid fa-sun text-amber-400';
             }
-            // Re-render charts for dark/light grid lines
             if (distributionChart && severityChart) {
                 distributionChart.destroy();
                 severityChart.destroy();
@@ -544,11 +591,11 @@
                             state.sensorStats.Pres
                         ],
                         backgroundColor: [
-                            '#f59e0b', // Temp amber
-                            '#3b82f6', // Humi blue
-                            '#0ea5e9', // WD sky
-                            '#14b8a6', // WS teal
-                            '#6366f1'  // Pres indigo
+                            '#f59e0b',
+                            '#3b82f6',
+                            '#0ea5e9',
+                            '#14b8a6',
+                            '#6366f1'
                         ],
                         borderWidth: 2,
                         borderColor: isDark ? '#1e293b' : '#ffffff'
@@ -567,7 +614,7 @@
                 }
             });
 
-            // 2. Bar Chart: Fault Severity per Station
+            // 2. Bar Chart: Fault Severity by Station
             const ctx2 = document.getElementById('stationSeverityChart').getContext('2d');
             const stationLabels = state.faultyStations.map(s => `สถานี ID ${s.id}`);
             const stationData = state.faultyStations.map(s => s.totalFailed);
@@ -629,8 +676,8 @@
             document.getElementById('operationalRatio').textContent = `${normalCount} / ${totalCount} สถานี`;
             document.getElementById('healthProgressBar').style.width = `${operationalPercent}%`;
             document.getElementById('faultyProgressBar').style.width = `${faultyPercent}%`;
-            document.getElementById('countNormalText').textContent = normalCount;
-            document.getElementById('countFaultyText').textContent = faultyCount;
+            document.getElementById('countNormalText').textContent = `${normalCount} สถานี`;
+            document.getElementById('countFaultyText').textContent = `${faultyCount} สถานี`;
 
             // Update Sensor Breakdown Indicators
             document.getElementById('sensorWDCount').textContent = `เสีย ${state.sensorStats.WD}`;

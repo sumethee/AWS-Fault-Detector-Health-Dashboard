@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบรายงานและวิเคราะห์สถานะสถานีตรวจอากาศ | TMD AWS Dashboard</title>
+    <!-- Google Fonts: Kanit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Kanit', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS for Excel Reading -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- html2canvas and jsPDF for Exporting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .light .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+        .pulse-red {
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            animation: pulse-red-anim 2s infinite;
+        }
+        @keyframes pulse-red-anim {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(51, 65, 85, 0.8);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(71, 85, 105, 1);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen transition-colors duration-300 antialiased" id="dashboard-container">
+
+    <!-- Top Navigation Header -->
+    <header class="border-b border-slate-800 bg-slate-900/80 sticky top-0 z-40 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-sky-500/20">
+                    <i class="fa-solid fa-cloud-bolt"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight bg-gradient-to-r from-sky-400 to-indigo-300 bg-clip-text text-transparent">
+                        AWS Fault Detector & Health Dashboard
+                    </h1>
+                    <p class="text-xs text-slate-400">ระบบวิเคราะห์และสรุปสถานะสถานีตรวจอากาศอัตโนมัติ (TMD)</p>
+                </div>
+            </div>
+
+            <!-- Header Actions -->
+            <div class="flex items-center space-x-3">
+                <button id="demoBtn" onclick="loadDemoData()" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-rotate-left text-sky-400"></i>
+                    <span>โหลดข้อมูลตัวอย่าง</span>
+                </button>
+                <button id="exportPdfBtn" onclick="exportToPDF()" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-sky-600 hover:bg-sky-500 text-white shadow-md shadow-sky-600/30 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-pdf"></i>
+                    <span>ดาวน์โหลดอินโฟกราฟิก (PDF)</span>
+                </button>
+                <button id="themeToggle" onclick="toggleTheme()" class="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 flex items-center justify-center border border-slate-700 transition">
+                    <i class="fa-solid fa-sun" id="themeIcon"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Banner / Notification Strip -->
+        <div id="statusBanner" class="p-4 rounded-2xl bg-gradient-to-r from-red-900/40 via-amber-900/20 to-slate-900/80 border border-red-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center shrink-0 pulse-red">
+                    <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-red-200 text-sm md:text-base flex items-center gap-2">
+                        แจ้งเตือน: พบเซ็นเซอร์และสถานีตรวจอากาศขัดข้องที่ต้องเร่งแก้ไข!
+                        <span id="bannerTimestamp" class="text-xs font-normal text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">27 ต.ค. 2026 เวลา 24:00 น.</span>
+                    </h3>
+                    <p class="text-xs text-slate-300 mt-0.5">
+                        สถานี <span class="font-bold text-red-400" id="criticalStationName">ID 29 ประจวบคีรีขันธ์</span> สูญเสียการส่งสัญญาณข้อมูล 4 พารามิเตอร์หลัก
+                    </p>
+                </div>
+            </div>
+            <a href="#faultTableSection" class="px-4 py-2 text-xs font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition shadow-lg shadow-red-600/20 shrink-0 flex items-center gap-2">
+                <i class="fa-solid fa-screwdriver-wrench"></i> ดูรายการที่ต้องซ่อมบำรุง
+            </a>
+        </div>
+
+        <!-- Metric KPI Cards -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="glass-panel rounded-2xl p-4 flex items-center justify-between border-l-4 border-sky-500">
+                <div>
+                    <p class="text-xs text-slate-400">สถานีทั้งหมดในระบบ</p>
+                    <h3 class="text-2xl font-extrabold text-white mt-1" id="kpiTotalStations">64</h3>
+                    <p class="text-[11px] text-slate-400 mt-0.5">ความครอบคลุม 100%</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-tower-cell"></i>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-4 flex items-center justify-between border-l-4 border-emerald-500">
+                <div>
+                    <p class="text-xs text-slate-400">สถานีสมบูรณ์พร้อมใช้</p>
+                    <h3 class="text-2xl font-extrabold text-emerald-400 mt-1" id="kpiOperational">60</h3>
+                    <p class="text-[11px] text-emerald-400/80 mt-0.5" id="kpiOperationalPercent">(93.75%)</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-4 flex items-center justify-between border-l-4 border-red-500">
+                <div>
+                    <p class="text-xs text-slate-400">สถานีที่พบปัญหา</p>
+                    <h3 class="text-2xl font-extrabold text-red-400 mt-1" id="kpiFaulty">4</h3>
+                    <p class="text-[11px] text-red-400/80 mt-0.5" id="kpiFaultyPercent">(6.25%)</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-4 flex items-center justify-between border-l-4 border-amber-500">
+                <div>
+                    <p class="text-xs text-slate-400">รวมเซ็นเซอร์ที่เสีย</p>
+                    <h3 class="text-2xl font-extrabold text-amber-400 mt-1" id="kpiTotalSensorsFailed">7</h3>
+                    <p class="text-[11px] text-slate-400 mt-0.5">รายการเซ็นเซอร์</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-microchip"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- File Upload Section & Filter Bar -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Upload Box -->
+            <div class="glass-panel rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-file-excel text-emerald-400"></i> นำเข้าไฟล์ข้อมูล (Excel/CSV)
+                        </h2>
+                        <span class="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded">Weather_by_City.xlsx</span>
+                    </div>
+
+                    <!-- Drop Zone -->
+                    <div id="dropZone" onclick="document.getElementById('fileInput').click()" 
+                         class="border-2 border-dashed border-slate-700 hover:border-sky-500/60 bg-slate-900/40 hover:bg-sky-950/20 rounded-xl p-5 text-center cursor-pointer transition flex flex-col items-center justify-center group">
+                        <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-500 group-hover:text-sky-400 group-hover:scale-110 transition duration-300 mb-2"></i>
+                        <p class="text-xs font-medium text-slate-300 group-hover:text-sky-300">คลิก หรือ ลากไฟล์ Excel (.xlsx) มาวางที่นี่</p>
+                        <p class="text-[11px] text-slate-500 mt-1">วิเคราะห์คอลัมน์ WD, WS, Temp, Humi, Pres อัตโนมัติ</p>
+                        <input type="file" id="fileInput" class="hidden" accept=".xlsx, .xls, .csv" onchange="handleFileSelect(event)">
+                    </div>
+                </div>
+
+                <div class="mt-3 flex items-center justify-between text-xs text-slate-400 pt-3 border-t border-slate-800">
+                    <span id="loadedFileName"><i class="fa-solid fa-check-circle text-emerald-400"></i> กำลังแสดง: Data Demo (64 รายการ)</span>
+                    <button onclick="resetData()" class="text-xs text-slate-400 hover:text-slate-200 underline">รีเซ็ต</button>
+                </div>
+            </div>
+
+            <!-- Operational Health Status & Gauge -->
+            <div class="glass-panel rounded-2xl p-5 lg:col-span-2 flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-shield-heart text-sky-400"></i> ดัชนีความสมบูรณ์และประสิทธิภาพของระบบ (Overall System Health)
+                        </h2>
+                        <p class="text-xs text-slate-400">สัดส่วนสถานีที่สามารถส่งข้อมูลสภาพอากาศได้ครบถ้วนสมบูรณ์</p>
+                    </div>
+                    <span id="healthPercentBadge" class="text-xl font-extrabold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-xl">
+                        93.75%
+                    </span>
+                </div>
+
+                <!-- Health Progress Bar -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs text-slate-300 font-medium">
+                        <span>ระดับความพร้อมใช้งาน (Operational Readiness)</span>
+                        <span id="operationalRatio">60 / 64 สถานี</span>
+                    </div>
+                    <div class="w-full bg-slate-800 h-4 rounded-full overflow-hidden p-0.5 border border-slate-700 flex">
+                        <div id="healthProgressBar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-700 shadow-md shadow-emerald-500/30" style="width: 93.75%"></div>
+                        <div id="faultyProgressBar" class="bg-gradient-to-r from-red-500 to-rose-600 h-full rounded-full transition-all duration-700 shadow-md shadow-red-500/30" style="width: 6.25%"></div>
+                    </div>
+                    <div class="flex justify-between text-[11px] text-slate-400 pt-1">
+                        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> ปกติสมบูรณ์: <strong class="text-slate-200" id="countNormalText">60 สถานี</strong></span>
+                        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-400"></span> ขัดข้อง/ข้อมูลขาด: <strong class="text-slate-200" id="countFaultyText">4 สถานี</strong></span>
+                    </div>
+                </div>
+
+                <!-- Quick Sensor Status Indicators -->
+                <div class="grid grid-cols-5 gap-2 mt-4 pt-3 border-t border-slate-800 text-center">
+                    <div class="p-2 rounded-xl bg-slate-900/50 border border-slate-800">
+                        <div class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><i class="fa-solid fa-compass text-sky-400"></i> ทิศทางลม (WD)</div>
+                        <div id="sensorWDCount" class="text-sm font-bold text-red-400 mt-0.5">เสีย 1 เครื่อง</div>
+                    </div>
+                    <div class="p-2 rounded-xl bg-slate-900/50 border border-slate-800">
+                        <div class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><i class="fa-solid fa-wind text-teal-400"></i> ความเร็วลม (WS)</div>
+                        <div id="sensorWSCount" class="text-sm font-bold text-red-400 mt-0.5">เสีย 1 เครื่อง</div>
+                    </div>
+                    <div class="p-2 rounded-xl bg-slate-900/50 border border-slate-800">
+                        <div class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><i class="fa-solid fa-temperature-three-quarters text-amber-400"></i> อุณหภูมิ (Temp)</div>
+                        <div id="sensorTempCount" class="text-sm font-bold text-red-400 mt-0.5">เสีย 2 เครื่อง</div>
+                    </div>
+                    <div class="p-2 rounded-xl bg-slate-900/50 border border-slate-800">
+                        <div class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><i class="fa-solid fa-droplet text-blue-400"></i> ความชื้น (Humi)</div>
+                        <div id="sensorHumiCount" class="text-sm font-bold text-red-400 mt-0.5">เสีย 2 เครื่อง</div>
+                    </div>
+                    <div class="p-2 rounded-xl bg-slate-900/50 border border-slate-800">
+                        <div class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><i class="fa-solid fa-gauge-high text-indigo-400"></i> ความกดอากาศ (Pres)</div>
+                        <div id="sensorPresCount" class="text-sm font-bold text-red-400 mt-0.5">เสีย 1 เครื่อง</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Infographic Visualization & Charts -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6" id="infographicSection">
+            <!-- Chart 1: Sensor Failure Distribution -->
+            <div class="glass-panel p-5 rounded-2xl flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-pie text-sky-400"></i> สัดส่วนประเภทเซ็นเซอร์ที่ขัดข้อง (Sensor Failure Distribution)
+                        </h3>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-4">แสดงสัดส่วนของเซ็นเซอร์ที่ไม่สามารถส่งข้อมูลค่าอุตุนิยมวิทยาได้</p>
+                </div>
+                <div class="h-64 relative flex items-center justify-center">
+                    <canvas id="sensorDistributionChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 2: Fault Severity by Station -->
+            <div class="glass-panel p-5 rounded-2xl flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-column text-indigo-400"></i> จำนวนเซ็นเซอร์ขัดข้องจำแนกตามรายสถานี (Failures per Station)
+                        </h3>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-4">เปรียบเทียบระดับความรุนแรงของปัญหาในแต่ละสถานีตรวจอากาศ</p>
+                </div>
+                <div class="h-64 relative">
+                    <canvas id="stationSeverityChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Detailed Breakdown & Interactive Table -->
+        <section class="glass-panel rounded-2xl p-5" id="faultTableSection">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5 pb-4 border-b border-slate-800">
+                <div>
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-red-400"></i> ตารางรายละเอียดสถานีและเซ็นเซอร์ขัดข้อง (Detailed Fault Breakdown)
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-0.5">ค้นหา ตรวจสอบ และติดตามสถานะของสถานีตรวจวัดสภาพอากาศอัตโนมัติทุกแห่ง</p>
+                </div>
+
+                <!-- Table Controls -->
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-400"></i>
+                        <input type="text" id="tableSearch" onkeyup="filterTable()" placeholder="ค้นหาชื่อสถานี หรือ ID..." 
+                               class="bg-slate-900/80 text-xs text-slate-200 pl-8 pr-3 py-1.5 rounded-xl border border-slate-700 focus:outline-none focus:border-sky-500 w-48 md:w-64">
+                    </div>
+                    
+                    <select id="statusFilter" onchange="filterTable()" class="bg-slate-900/80 text-xs text-slate-200 px-3 py-1.5 rounded-xl border border-slate-700 focus:outline-none focus:border-sky-500">
+                        <option value="faulty">แสดงเฉพาะสถานีที่ขัดข้อง (Faulty Only)</option>
+                        <option value="all">แสดงสถานีทั้งหมด (All Stations)</option>
+                        <option value="normal">แสดงเฉพาะสถานีปกติ (Operational)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-300">
+                    <thead class="bg-slate-900/80 text-xs uppercase text-slate-400 font-semibold border-b border-slate-800">
+                        <tr>
+                            <th class="py-3 px-4 w-20">รหัส ID</th>
+                            <th class="py-3 px-4">ชื่อสถานี (Station Name)</th>
+                            <th class="py-3 px-4">สถานะการทำงาน</th>
+                            <th class="py-3 px-4">รายการเซ็นเซอร์ที่ขัดข้อง</th>
+                            <th class="py-3 px-4 text-center w-32">จำนวนที่เสีย</th>
+                            <th class="py-3 px-4 text-right w-28">การจัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="faultTableBody" class="divide-y divide-slate-800/60 font-light text-xs md:text-sm">
+                        <!-- Dynamic Rows Inserted Here -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Infographic Printable Card View Summary -->
+        <section class="glass-panel rounded-2xl p-6 bg-gradient-to-br from-slate-900 via-slate-900/90 to-slate-950 border border-slate-800" id="infographicPrintArea">
+            <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
+                <div class="flex items-center gap-3">
+                    <div class="p-2.5 rounded-xl bg-sky-500/20 text-sky-400">
+                        <i class="fa-solid fa-file-contract text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-100 text-sm md:text-base">สรุปรายงานอินโฟกราฟิก - สภาพระบบ TMD AWS</h3>
+                        <p class="text-xs text-slate-400">รายงานข้อมูลสถานะเซ็นเซอร์และการบำรุงรักษา สำหรับทีมวิศวกรประจำวัน</p>
+                    </div>
+                </div>
+                <div class="text-right text-xs text-slate-400">
+                    <div>วันที่บันทึกข้อมูล: <span class="text-slate-200 font-medium">27 ต.ค. 2026</span></div>
+                    <div>เวลาอัปเดตระบบ: <span class="text-slate-200 font-medium">24:00 น.</span></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+                <!-- Highlight 1: Critical Station -->
+                <div class="p-4 rounded-xl bg-red-950/40 border border-red-500/30 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center text-red-400 font-semibold mb-1">
+                            <span><i class="fa-solid fa-triangle-exclamation"></i> ความรุนแรงระดับสูง</span>
+                            <span class="text-[10px] bg-red-500/20 px-2 py-0.5 rounded-full border border-red-500/40">เร่งด่วนที่สุด</span>
+                        </div>
+                        <h4 class="font-bold text-white text-sm">ID 29: Prachuap Khiri Khan</h4>
+                        <p class="text-[11px] text-slate-300 mt-2">
+                            สูญเสียสัญญาณเซ็นเซอร์ 4 รายการซ้อน (ทิศทางลม, ความเร็วลม, อุณหภูมิ, ความชื้น) จำเป็นต้องส่งช่างเข้าตรวจสอบกล่อง Data Logger หรือสายส่งสัญญาณหลักทันที
+                        </p>
+                    </div>
+                    <div class="mt-3 pt-2 border-t border-red-900/50 text-[10px] text-red-300 font-medium">
+                        ทีมรับผิดชอบ: ศูนย์อุตุนิยมวิทยาภาคใต้ฝั่งตะวันออก
+                    </div>
+                </div>
+
+                <!-- Highlight 2: Single Sensor Faults -->
+                <div class="p-4 rounded-xl bg-amber-950/30 border border-amber-500/30 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center text-amber-400 font-semibold mb-1">
+                            <span><i class="fa-solid fa-wrench"></i> เฝ้าระวังเฉพาะจุด</span>
+                            <span class="text-[10px] bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/40">ปานกลาง</span>
+                        </div>
+                        <h4 class="font-bold text-white text-sm">ID 55 (สวี) & ID 103 (สทิงพระ)</h4>
+                        <p class="text-[11px] text-slate-300 mt-2">
+                            • <strong>สถานีสวี (ID 55):</strong> เซ็นเซอร์วัดความชื้น (Humi) ขัดข้อง<br>
+                            • <strong>สถานีสทิงพระ (ID 103):</strong> เซ็นเซอร์วัดอุณหภูมิ (Temp) ขัดข้อง
+                        </p>
+                    </div>
+                    <div class="mt-3 pt-2 border-t border-amber-900/50 text-[10px] text-amber-300 font-medium">
+                        การดำเนินการ: เตรียม Probe อะไหล่สำรองเข้าเปลี่ยน
+                    </div>
+                </div>
+
+                <!-- Highlight 3: Pressure Fault -->
+                <div class="p-4 rounded-xl bg-indigo-950/30 border border-indigo-500/30 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center text-indigo-400 font-semibold mb-1">
+                            <span><i class="fa-solid fa-gauge"></i> เซ็นเซอร์ความกดอากาศ</span>
+                            <span class="text-[10px] bg-indigo-500/20 px-2 py-0.5 rounded-full border border-indigo-500/40">เฝ้าระวัง</span>
+                        </div>
+                        <h4 class="font-bold text-white text-sm">ID 1081: Klong Tha Din Dang</h4>
+                        <p class="text-[11px] text-slate-300 mt-2">
+                            ไม่พบข้อมูลค่าความกดอากาศ Pres (hPa) คาดว่าสัญญาณสอบเทียบแรงดันหลุดจากวงจร
+                        </p>
+                    </div>
+                    <div class="mt-3 pt-2 border-t border-indigo-900/50 text-[10px] text-indigo-300 font-medium">
+                        การดำเนินการ: รีเซ็ตโมดูลส่งสัญญาณระยะไกล
+                    </div>
+                </div>
+
+                <!-- Highlight 4: Recommendations -->
+                <div class="p-4 rounded-xl bg-slate-800/60 border border-slate-700 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center text-sky-400 font-semibold mb-1">
+                            <span><i class="fa-solid fa-clipboard-check"></i> แผนปฏิบัติติการ</span>
+                        </div>
+                        <h4 class="font-bold text-white text-sm">Action Plan</h4>
+                        <ul class="text-[11px] text-slate-300 mt-2 space-y-1 list-disc list-inside">
+                            <li>จัดส่งทีมช่างเทคนิคลงพื้นที่ ID 29 เป็นอันดับแรก</li>
+                            <li>เตรียมชุด Probe สำรอง (Temp/Humi) จำนวน 3 ชุด</li>
+                            <li>สอบทานสัญญาณของ ID 1081 ผ่าน Remote System</li>
+                        </ul>
+                    </div>
+                    <div class="mt-3 pt-2 border-t border-slate-700 text-[10px] text-slate-400">
+                        อ้างอิงตามมาตรฐานกรมอุตุนิยมวิทยา
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal Detail View -->
+    <div id="detailModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="glass-panel bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative mx-4">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="flex items-center gap-3 mb-4">
+                <div id="modalIcon" class="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold">
+                    <i class="fa-solid fa-tower-broadcast"></i>
+                </div>
+                <div>
+                    <h3 id="modalStationTitle" class="text-base font-bold text-white">Prachuap Khiri Khan</h3>
+                    <p id="modalStationSub" class="text-xs text-slate-400">ID: 29 • สถานีตรวจอากาศอัตโนมัติ</p>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <h4 class="text-xs font-semibold text-slate-400 mb-2">ผลการตรวจสอบพารามิเตอร์แต่ละเซ็นเซอร์</h4>
+                    <div id="modalSensorList" class="grid grid-cols-2 gap-2 text-xs">
+                        <!-- Sensors status dynamically inserted -->
+                    </div>
+                </div>
+
+                <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <h4 class="text-xs font-semibold text-slate-400 mb-1">คำแนะนำการซ่อมบำรุง (Required Action)</h4>
+                    <p id="modalActionText" class="text-xs text-slate-300">
+                        ตรวจสอบสายสัญญาณเซ็นเซอร์ และกล่อง Datalogger ประจำสถานี
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button onclick="closeModal()" class="px-4 py-2 text-xs font-medium rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200">
+                    ปิดหน้าต่าง
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Initial Default Data
+        const DEFAULT_FAULTY_STATIONS = [
+            {
+                id: "29",
+                name: "Prachuap Khiri Khan Weather Observing Station",
+                dateTime: "2026/10/27 24:00",
+                failedSensors: [
+                    { name: "WD (ทิศทางลม)", icon: "fa-compass", code: "WD" },
+                    { name: "WS (ความเร็วลม)", icon: "fa-wind", code: "WS" },
+                    { name: "Temp (อุณหภูมิ)", icon: "fa-temperature-three-quarters", code: "Temp" },
+                    { name: "Humi (ความชื้น)", icon: "fa-droplet", code: "Humi" }
+                ],
+                totalFailed: 4,
+                severity: "Critical",
+                allSensors: { WD: "-", WS: "-", Temp: "-", Humi: "-", Pres: "1010.9" }
+            },
+            {
+                id: "55",
+                name: "Sawi Agrometeorlogical Station",
+                dateTime: "2026/10/27 24:00",
+                failedSensors: [
+                    { name: "Humi (ความชื้น)", icon: "fa-droplet", code: "Humi" }
+                ],
+                totalFailed: 1,
+                severity: "Warning",
+                allSensors: { WD: "350.1", WS: "3.1", Temp: "24.3", Humi: "-", Pres: "1008.9" }
+            },
+            {
+                id: "103",
+                name: "Sathing Phra Weather Radar Station",
+                dateTime: "2026/10/27 24:00",
+                failedSensors: [
+                    { name: "Temp (อุณหภูมิ)", icon: "fa-temperature-three-quarters", code: "Temp" }
+                ],
+                totalFailed: 1,
+                severity: "Warning",
+                allSensors: { WD: "191.3", WS: "1.0", Temp: "-", Humi: "90.7", Pres: "1012.2" }
+            },
+            {
+                id: "1081",
+                name: "Klong Tha Din Dang Automatic Weather Station",
+                dateTime: "2026/10/27 24:00",
+                failedSensors: [
+                    { name: "Pres (ความกดอากาศ)", icon: "fa-gauge-high", code: "Pres" }
+                ],
+                totalFailed: 1,
+                severity: "Warning",
+                allSensors: { WD: "120.4", WS: "0.8", Temp: "25.0", Humi: "92.0", Pres: "-" }
+            }
+        ];
+
+        let state = {
+            totalStationsCount: 64,
+            faultyStations: [...DEFAULT_FAULTY_STATIONS],
+            allStations: [],
+            sensorStats: { WD: 1, WS: 1, Temp: 2, Humi: 2, Pres: 1 }
+        };
+
+        let distributionChart = null;
+        let severityChart = null;
+
+        // Initialize on DOM Ready
+        window.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            renderDashboard();
+            setupDragAndDrop();
+        });
+
+        // Toggle Theme (Dark / Light)
+        function toggleTheme() {
+            const html = document.documentElement;
+            const themeIcon = document.getElementById('themeIcon');
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                html.classList.add('light');
+                themeIcon.className = 'fa-solid fa-moon text-slate-700';
+            } else {
+                html.classList.remove('light');
+                html.classList.add('dark');
+                themeIcon.className = 'fa-solid fa-sun text-amber-400';
+            }
+            if (distributionChart && severityChart) {
+                distributionChart.destroy();
+                severityChart.destroy();
+                initCharts();
+            }
+        }
+
+        // Initialize Chart.js with Thai Labels
+        function initCharts() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#94a3b8' : '#475569';
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
+
+            // 1. Doughnut Chart: Sensor Failure Distribution
+            const ctx1 = document.getElementById('sensorDistributionChart').getContext('2d');
+            distributionChart = new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: ['อุณหภูมิ (Temp)', 'ความชื้น (Humi)', 'ทิศทางลม (WD)', 'ความเร็วลม (WS)', 'ความกดอากาศ (Pres)'],
+                    datasets: [{
+                        data: [
+                            state.sensorStats.Temp, 
+                            state.sensorStats.Humi, 
+                            state.sensorStats.WD, 
+                            state.sensorStats.WS, 
+                            state.sensorStats.Pres
+                        ],
+                        backgroundColor: [
+                            '#f59e0b',
+                            '#3b82f6',
+                            '#0ea5e9',
+                            '#14b8a6',
+                            '#6366f1'
+                        ],
+                        borderWidth: 2,
+                        borderColor: isDark ? '#1e293b' : '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: { color: textColor, font: { family: 'Kanit', size: 11 } }
+                        }
+                    },
+                    cutout: '65%'
+                }
+            });
+
+            // 2. Bar Chart: Fault Severity by Station
+            const ctx2 = document.getElementById('stationSeverityChart').getContext('2d');
+            const stationLabels = state.faultyStations.map(s => `สถานี ID ${s.id}`);
+            const stationData = state.faultyStations.map(s => s.totalFailed);
+
+            severityChart = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: stationLabels,
+                    datasets: [{
+                        label: 'จำนวนเซ็นเซอร์ที่เสีย (ระบบ)',
+                        data: stationData,
+                        backgroundColor: stationData.map(v => v >= 4 ? '#ef4444' : '#f59e0b'),
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            stepSize: 1,
+                            ticks: { color: textColor, font: { family: 'Kanit' } },
+                            grid: { color: gridColor }
+                        },
+                        x: {
+                            ticks: { color: textColor, font: { family: 'Kanit' } },
+                            grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // Render Dashboard Data & UI Updates
+        function renderDashboard() {
+            const faultyCount = state.faultyStations.length;
+            const totalCount = state.totalStationsCount;
+            const normalCount = Math.max(0, totalCount - faultyCount);
+            const operationalPercent = ((normalCount / totalCount) * 100).toFixed(2);
+            const faultyPercent = ((faultyCount / totalCount) * 100).toFixed(2);
+
+            let totalSensorsFailed = 0;
+            state.faultyStations.forEach(s => totalSensorsFailed += s.totalFailed);
+
+            // Update KPI Cards
+            document.getElementById('kpiTotalStations').textContent = totalCount;
+            document.getElementById('kpiOperational').textContent = normalCount;
+            document.getElementById('kpiOperationalPercent').textContent = `(${operationalPercent}%)`;
+            document.getElementById('kpiFaulty').textContent = faultyCount;
+            document.getElementById('kpiFaultyPercent').textContent = `(${faultyPercent}%)`;
+            document.getElementById('kpiTotalSensorsFailed').textContent = totalSensorsFailed;
+
+            // Update Health Progress Bar
+            document.getElementById('healthPercentBadge').textContent = `${operationalPercent}%`;
+            document.getElementById('operationalRatio').textContent = `${normalCount} / ${totalCount} สถานี`;
+            document.getElementById('healthProgressBar').style.width = `${operationalPercent}%`;
+            document.getElementById('faultyProgressBar').style.width = `${faultyPercent}%`;
+            document.getElementById('countNormalText').textContent = `${normalCount} สถานี`;
+            document.getElementById('countFaultyText').textContent = `${faultyCount} สถานี`;
+
+            // Update Sensor Breakdown Indicators
+            document.getElementById('sensorWDCount').textContent = `เสีย ${state.sensorStats.WD}`;
+            document.getElementById('sensorWSCount').textContent = `เสีย ${state.sensorStats.WS}`;
+            document.getElementById('sensorTempCount').textContent = `เสีย ${state.sensorStats.Temp}`;
+            document.getElementById('sensorHumiCount').textContent = `เสีย ${state.sensorStats.Humi}`;
+            document.getElementById('sensorPresCount').textContent = `เสีย ${state.sensorStats.Pres}`;
+
+            // Update Table
+            renderTable();
+
+            // Update Charts Data
+            if (distributionChart && severityChart) {
+                distributionChart.data.datasets[0].data = [
+                    state.sensorStats.Temp, 
+                    state.sensorStats.Humi, 
+                    state.sensorStats.WD, 
+                    state.sensorStats.WS, 
+                    state.sensorStats.Pres
+                ];
+                distributionChart.update();
+
+                severityChart.data.labels = state.faultyStations.map(s => `ID ${s.id}`);
+                severityChart.data.datasets[0].data = state.faultyStations.map(s => s.totalFailed);
+                severityChart.data.datasets[0].backgroundColor = state.faultyStations.map(s => s.totalFailed >= 4 ? '#ef4444' : '#f59e0b');
+                severityChart.update();
+            }
+        }
+
+        // Render Table Rows
+        function renderTable() {
+            const tbody = document.getElementById('faultTableBody');
+            tbody.innerHTML = '';
+
+            const statusFilter = document.getElementById('statusFilter').value;
+            const searchKeyword = document.getElementById('tableSearch').value.toLowerCase();
+
+            let displayList = [];
+
+            if (statusFilter === 'faulty') {
+                displayList = state.faultyStations;
+            } else if (statusFilter === 'all') {
+                displayList = state.allStations.length > 0 ? state.allStations : [...state.faultyStations];
+            } else if (statusFilter === 'normal') {
+                displayList = state.allStations.filter(s => s.totalFailed === 0);
+            }
+
+            // Apply Search Filter
+            displayList = displayList.filter(s => 
+                s.name.toLowerCase().includes(searchKeyword) || 
+                s.id.toString().includes(searchKeyword)
+            );
+
+            if (displayList.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-6 text-slate-500">
+                            ไม่พบรายการข้อมูลสถานีที่ตรงกับเงื่อนไขการค้นหา
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            displayList.forEach(station => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-900/60 transition";
+
+                const isFaulty = station.totalFailed > 0;
+                const statusBadge = isFaulty
+                    ? `<span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-red-500/10 text-red-400 border border-red-500/30 flex items-center gap-1.5 w-max"><span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span> ขัดข้อง (${station.severity === 'Critical' ? 'วิกฤต' : 'เฝ้าระวัง'})</span>`
+                    : `<span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 w-max"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> สมบูรณ์ปกติ</span>`;
+
+                const sensorsBadges = isFaulty 
+                    ? station.failedSensors.map(s => `
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[11px] mr-1 my-0.5">
+                            <i class="fa-solid ${s.icon} text-red-400"></i> ${s.name}
+                        </span>
+                    `).join('')
+                    : `<span class="text-slate-500 text-xs">ทำงานปกติทุกระบบ</span>`;
+
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-bold text-slate-200">ID ${station.id}</td>
+                    <td class="py-3 px-4 font-medium text-slate-100">
+                        ${station.name}
+                        <div class="text-[10px] text-slate-500">${station.dateTime || '2026/10/27 24:00'}</div>
+                    </td>
+                    <td class="py-3 px-4">${statusBadge}</td>
+                    <td class="py-3 px-4">${sensorsBadges}</td>
+                    <td class="py-3 px-4 text-center font-bold ${isFaulty ? 'text-red-400' : 'text-emerald-400'}">${station.totalFailed} ระบบ</td>
+                    <td class="py-3 px-4 text-right">
+                        <button onclick="openModal('${station.id}')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 text-xs transition">
+                            <i class="fa-solid fa-eye"></i> รายละเอียด
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterTable() {
+            renderTable();
+        }
+
+        // Modal View
+        function openModal(stationId) {
+            const station = state.faultyStations.find(s => s.id.toString() === stationId.toString()) || 
+                            state.allStations.find(s => s.id.toString() === stationId.toString());
+            
+            if (!station) return;
+
+            document.getElementById('modalStationTitle').textContent = station.name;
+            document.getElementById('modalStationSub').textContent = `ID: ${station.id} • Weather Observing Station`;
+            
+            const modalIcon = document.getElementById('modalIcon');
+            if (station.totalFailed >= 4) {
+                modalIcon.className = 'w-12 h-12 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center text-xl font-bold border border-red-500/30';
+            } else if (station.totalFailed > 0) {
+                modalIcon.className = 'w-12 h-12 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl font-bold border border-amber-500/30';
+            } else {
+                modalIcon.className = 'w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl font-bold border border-emerald-500/30';
+            }
+
+            const sensorListContainer = document.getElementById('modalSensorList');
+            sensorListContainer.innerHTML = '';
+
+            const sensorKeys = [
+                { key: 'WD', label: 'WD (ทิศทางลม)', icon: 'fa-compass' },
+                { key: 'WS', label: 'WS (ความเร็วลม)', icon: 'fa-wind' },
+                { key: 'Temp', label: 'Temp (อุณหภูมิ)', icon: 'fa-temperature-three-quarters' },
+                { key: 'Humi', label: 'Humi (ความชื้น)', icon: 'fa-droplet' },
+                { key: 'Pres', label: 'Pres (ความกดอากาศ)', icon: 'fa-gauge-high' }
+            ];
+
+            sensorKeys.forEach(s => {
+                const val = station.allSensors ? station.allSensors[s.key] : null;
+                const isFailed = !val || val === '-' || val === 'null' || val === undefined;
+                
+                const div = document.createElement('div');
+                div.className = `p-2 rounded-lg border flex items-center justify-between ${isFailed ? 'bg-red-950/30 border-red-500/30 text-red-300' : 'bg-slate-900 border-slate-800 text-slate-300'}`;
+                div.innerHTML = `
+                    <span class="flex items-center gap-1.5"><i class="fa-solid ${s.icon}"></i> ${s.key}</span>
+                    <span class="font-bold">${isFailed ? '<i class="fa-solid fa-circle-xmark text-red-400"></i> ข้อมูลขาด (-)' : val}</span>
+                `;
+                sensorListContainer.appendChild(div);
+            });
+
+            const actionText = document.getElementById('modalActionText');
+            if (station.totalFailed >= 4) {
+                actionText.textContent = 'วิเคราะห์ความรุนแรงระดับสูง (Critical): ส่งทีมช่างเทคนิคเปลี่ยนกล่อง Data Logger หรือสายส่งสัญญาณหลัก';
+            } else if (station.totalFailed > 0) {
+                actionText.textContent = 'วิเคราะห์ระดับเตือนภัย (Warning): ตรวจสอบ Probe เซ็นเซอร์ตัวดังกล่าว และทำการ Calibration ใหม่';
+            } else {
+                actionText.textContent = 'ระบบทำงานสมบูรณ์ ไม่จำเป็นต้องดำเนินการบำรุงรักษาในขณะนี้';
+            }
+
+            const modal = document.getElementById('detailModal');
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.remove('opacity-0'), 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('detailModal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        // Setup Drag & Drop File Upload & Parsing using SheetJS
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('dropZone');
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.add('border-sky-400', 'bg-sky-950/30'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.remove('border-sky-400', 'bg-sky-950/30'), false);
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length > 0) {
+                    processFile(files[0]);
+                }
+            });
+        }
+
+        function handleFileSelect(event) {
+            const files = event.target.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        }
+
+        // Parse Excel File Dynamically
+        function processFile(file) {
+            document.getElementById('loadedFileName').innerHTML = `<i class="fa-solid fa-spinner fa-spin text-sky-400"></i> กำลังอ่านไฟล์: ${file.name}...`;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "-" });
+
+                    parseWeatherExcelData(jsonData, file.name);
+                } catch (err) {
+                    alert("เกิดข้อผิดพลาดในการอ่านไฟล์ Excel กรุณาตรวจสอบฟอร์แมตไฟล์อีกครั้ง");
+                    console.error(err);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parseWeatherExcelData(rows, fileName) {
+            let totalStations = rows.length;
+            let faultyStationsList = [];
+            let allParsedStations = [];
+            let sensorStats = { WD: 0, WS: 0, Temp: 0, Humi: 0, Pres: 0 };
+
+            rows.forEach((row, idx) => {
+                const id = row['ID'] || row['id'] || (idx + 1);
+                const name = row['Station'] || row['Station Name'] || row['ชื่อสถานี'] || `Station ${id}`;
+                const dateTime = row['Date/Time'] || row['Date'] || '2026/10/27 24:00';
+
+                const wd = String(row['WD(deg)'] || row['WD'] || row['ทิศทางลม'] || '-').trim();
+                const ws = String(row['WS(knot)'] || row['WS'] || row['ความเร็วลม'] || '-').trim();
+                const temp = String(row['Temp.(°C)'] || row['Temp'] || row['อุณหภูมิ'] || '-').trim();
+                const humi = String(row['Humi.(%)'] || row['Humi'] || row['ความชื้น'] || '-').trim();
+                const pres = String(row['Pres.(hPa)'] || row['Pres'] || row['ความกดอากาศ'] || '-').trim();
+
+                let failedSensors = [];
+
+                if (wd === '-' || wd === '' || wd.toLowerCase() === 'null') {
+                    failedSensors.push({ name: "WD (ทิศทางลม)", icon: "fa-compass", code: "WD" });
+                    sensorStats.WD++;
+                }
+                if (ws === '-' || ws === '' || ws.toLowerCase() === 'null') {
+                    failedSensors.push({ name: "WS (ความเร็วลม)", icon: "fa-wind", code: "WS" });
+                    sensorStats.WS++;
+                }
+                if (temp === '-' || temp === '' || temp.toLowerCase() === 'null') {
+                    failedSensors.push({ name: "Temp (อุณหภูมิ)", icon: "fa-temperature-three-quarters", code: "Temp" });
+                    sensorStats.Temp++;
+                }
+                if (humi === '-' || humi === '' || humi.toLowerCase() === 'null') {
+                    failedSensors.push({ name: "Humi (ความชื้น)", icon: "fa-droplet", code: "Humi" });
+                    sensorStats.Humi++;
+                }
+                if (pres === '-' || pres === '' || pres.toLowerCase() === 'null') {
+                    failedSensors.push({ name: "Pres (ความกดอากาศ)", icon: "fa-gauge-high", code: "Pres" });
+                    sensorStats.Pres++;
+                }
+
+                const stationObj = {
+                    id: id,
+                    name: name,
+                    dateTime: dateTime,
+                    failedSensors: failedSensors,
+                    totalFailed: failedSensors.length,
+                    severity: failedSensors.length >= 4 ? 'Critical' : (failedSensors.length > 0 ? 'Warning' : 'Normal'),
+                    allSensors: { WD: wd, WS: ws, Temp: temp, Humi: humi, Pres: pres }
+                };
+
+                allParsedStations.push(stationObj);
+                if (failedSensors.length > 0) {
+                    faultyStationsList.push(stationObj);
+                }
+            });
+
+            // Update Global State
+            state.totalStationsCount = totalStations > 0 ? totalStations : 64;
+            state.faultyStations = faultyStationsList;
+            state.allStations = allParsedStations;
+            state.sensorStats = sensorStats;
+
+            document.getElementById('loadedFileName').innerHTML = `<i class="fa-solid fa-check-circle text-emerald-400"></i> โหลดสำเร็จ: ${fileName} (${totalStations} สถานี)`;
+            renderDashboard();
+        }
+
+        // Reset to Initial Demo Data
+        function loadDemoData() {
+            state = {
+                totalStationsCount: 64,
+                faultyStations: [...DEFAULT_FAULTY_STATIONS],
+                allStations: [],
+                sensorStats: { WD: 1, WS: 1, Temp: 2, Humi: 2, Pres: 1 }
+            };
+            document.getElementById('loadedFileName').innerHTML = `<i class="fa-solid fa-check-circle text-emerald-400"></i> กำลังแสดง: Data Demo (64 รายการ)`;
+            renderDashboard();
+        }
+
+        function resetData() {
+            loadDemoData();
+        }
+
+        // Export Infographic to PDF
+        function exportToPDF() {
+            const exportBtn = document.getElementById('exportPdfBtn');
+            const originalText = exportBtn.innerHTML;
+            exportBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> กำลังสร้าง PDF...`;
+
+            const element = document.getElementById('dashboard-container');
+            
+            html2canvas(element, {
+                scale: 1.5,
+                useCORS: true,
+                backgroundColor: document.documentElement.classList.contains('dark') ? '#020617' : '#ffffff'
+            }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgWidth = 210;
+                const pageHeight = 297;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+
+                pdf.save('Weather_Station_Fault_Infographic.pdf');
+                exportBtn.innerHTML = originalText;
+            }).catch(err => {
+                console.error(err);
+                alert('เกิดข้อผิดพลาดในการสร้าง PDF');
+                exportBtn.innerHTML = originalText;
+            });
+        }
+    </script>
+</body>
+</html>
